@@ -43,6 +43,11 @@ export default function AttributionPage() {
   const [detail, setDetail] = useState<RefDetailData | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
+  const [showCreate, setShowCreate] = useState(false)
+  const [form, setForm] = useState({ name: '', originalUrl: '' })
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+  const [createdUrl, setCreatedUrl] = useState<string | null>(null)
 
   const loadSummary = useCallback(async () => {
     setLoading(true)
@@ -89,6 +94,31 @@ export default function AttributionPage() {
     setTimeout(() => setCopiedCode(null), 2000)
   }
 
+  const handleCreate = async () => {
+    setCreateError(null)
+    if (!form.name.trim() || !form.originalUrl.trim()) {
+      setCreateError('経路名とリンク先URLは必須です')
+      return
+    }
+    setCreating(true)
+    try {
+      const res = await fetchApi<{ success: boolean; data: { trackingUrl?: string } }>(
+        '/api/tracked-links',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: form.name, originalUrl: form.originalUrl }),
+        }
+      )
+      setCreatedUrl(res.data.trackingUrl ?? null)
+      setForm({ name: '', originalUrl: '' })
+      await loadSummary()
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : '作成に失敗しました')
+    }
+    setCreating(false)
+  }
+
   const formatDate = (iso: string | null) => {
     if (!iso) return '—'
     return new Date(iso).toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' })
@@ -99,7 +129,88 @@ export default function AttributionPage() {
       <Header
         title="流入経路分析"
         description="ref コード別の友だち獲得・クリック実績"
+        action={
+          <button
+            onClick={() => {
+              setShowCreate((v) => !v)
+              setCreatedUrl(null)
+              setCreateError(null)
+            }}
+            className="px-4 py-2 min-h-[44px] text-sm font-medium text-white rounded-lg transition-opacity hover:opacity-90"
+            style={{ backgroundColor: '#06C755' }}
+          >
+            {showCreate ? 'キャンセル' : '+ 新規流入経路'}
+          </button>
+        }
       />
+
+      {/* Create form */}
+      {showCreate && (
+        <div className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h2 className="text-sm font-semibold text-gray-800 mb-4">新規流入経路を作成</h2>
+          <div className="space-y-4 max-w-lg">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">経路名 <span className="text-red-500">*</span></label>
+              <input
+                type="text"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="例: X投稿キャンペーン"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">リンク先URL <span className="text-red-500">*</span></label>
+              <input
+                type="url"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="https://line.me/R/ti/p/..."
+                value={form.originalUrl}
+                onChange={(e) => setForm({ ...form, originalUrl: e.target.value })}
+              />
+              <p className="mt-1 text-xs text-gray-500">通常は LINE 友だち追加リンク(https://line.me/R/ti/p/... など)</p>
+            </div>
+            {createError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">{createError}</div>
+            )}
+            {createdUrl && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800">
+                <p className="font-medium mb-1">作成しました。以下の短縮URLをシェアしてください:</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 break-all bg-white rounded px-2 py-1 border border-green-200">{createdUrl}</code>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(createdUrl)}
+                    className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 shrink-0"
+                  >
+                    コピー
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={handleCreate}
+                disabled={creating}
+                className="px-4 py-2 min-h-[44px] text-sm font-medium text-white rounded-lg transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{ backgroundColor: '#06C755' }}
+              >
+                {creating ? '作成中...' : '作成'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowCreate(false)
+                  setForm({ name: '', originalUrl: '' })
+                  setCreatedUrl(null)
+                  setCreateError(null)
+                }}
+                className="px-4 py-2 min-h-[44px] text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
+              >
+                閉じる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Summary cards */}
       {summary && (

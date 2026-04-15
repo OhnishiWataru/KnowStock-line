@@ -39,6 +39,7 @@ import { adPlatforms } from './routes/ad-platforms.js';
 import { staff } from './routes/staff.js';
 import { images } from './routes/images.js';
 import { setup } from './routes/setup.js';
+import { auth } from './routes/auth.js';
 import { autoReplies } from './routes/auto-replies.js';
 import { trafficPools } from './routes/traffic-pools.js';
 import { meetCallback } from './routes/meet-callback.js';
@@ -76,6 +77,9 @@ app.use('*', rateLimitMiddleware);
 
 // Auth middleware — skips /webhook and /docs automatically
 app.use('*', authMiddleware);
+
+// Auth (before other routes, no auth middleware needed)
+app.route('/', auth);
 
 // Mount route groups — MVP & Round 2
 app.route('/', webhook);

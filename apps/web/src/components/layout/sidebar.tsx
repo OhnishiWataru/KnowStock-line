@@ -188,11 +188,28 @@ export default function Sidebar() {
           <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: '#06C755' }}>
             H
           </div>
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-bold text-gray-900 leading-tight">LINE Harness</p>
             <p className="text-xs text-gray-400">管理画面</p>
           </div>
         </div>
+        {(() => {
+          const url = process.env.NEXT_PUBLIC_API_URL || ''
+          const isRemote = url.includes('workers.dev') || url.includes('cfargotunnel')
+          return (
+            <div className="mt-2">
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded ${
+                  isRemote
+                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                    : 'bg-blue-100 text-blue-800 border border-blue-300'
+                }`}
+              >
+                {isRemote ? '☁️ REMOTE' : '💻 LOCAL'}
+              </span>
+            </div>
+          )
+        })()}
       </div>
 
       {/* アカウント切替 */}

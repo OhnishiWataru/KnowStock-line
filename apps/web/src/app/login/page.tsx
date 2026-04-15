@@ -3,9 +3,12 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
-  const [apiKey, setApiKey] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [isSetup, setIsSetup] = useState(false)
   const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -14,32 +17,27 @@ export default function LoginPage() {
     setError('')
 
     try {
-      // Validate by calling a simple endpoint
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787'
-      const res = await fetch(`${apiUrl}/api/friends/count`, {
-        headers: { Authorization: `Bearer ${apiKey}` },
+      const endpoint = isSetup ? '/api/auth/setup' : '/api/auth/login'
+      const body = isSetup
+        ? { email, password, name }
+        : { email, password }
+
+      const res = await fetch(`${apiUrl}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
       })
 
-      if (res.ok) {
-        localStorage.setItem('lh_api_key', apiKey)
-        // Fetch staff profile for name/role display
-        try {
-          const profileRes = await fetch(`${apiUrl}/api/staff/me`, {
-            headers: { Authorization: `Bearer ${apiKey}` },
-          })
-          if (profileRes.ok) {
-            const profileData = await profileRes.json()
-            if (profileData.success && profileData.data) {
-              localStorage.setItem('lh_staff_name', profileData.data.name)
-              localStorage.setItem('lh_staff_role', profileData.data.role)
-            }
-          }
-        } catch {
-          // Profile fetch is best-effort
-        }
+      const data = await res.json()
+
+      if (data.success) {
+        localStorage.setItem('lh_api_key', data.data.apiKey)
+        localStorage.setItem('lh_staff_name', data.data.name)
+        localStorage.setItem('lh_staff_role', data.data.role)
         router.push('/')
       } else {
-        setError('APIキーが正しくありません')
+        setError(data.error || 'ログインに失敗しました')
       }
     } catch {
       setError('接続に失敗しました')
@@ -53,22 +51,48 @@ export default function LoginPage() {
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm">
         <div className="text-center mb-6">
           <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg mx-auto mb-3" style={{ backgroundColor: '#06C755' }}>
-            H
+            K
           </div>
-          <h1 className="text-xl font-bold text-gray-900">LINE Harness</h1>
-          <p className="text-sm text-gray-500 mt-1">管理画面にログイン</p>
+          <h1 className="text-xl font-bold text-gray-900">KnowStock</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {isSetup ? '管理者アカウントを作成' : 'LINE配信スタンド'}
+          </p>
         </div>
 
         <form onSubmit={handleLogin}>
+          {isSetup && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">名前</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="管理者名"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
+            </div>
+          )}
+
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">メールアドレス</label>
             <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="APIキーを入力"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="email@example.com"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
               autoFocus
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">パスワード</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="パスワード"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
             />
           </div>
 
@@ -78,13 +102,22 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading || !apiKey}
+            disabled={loading || !email || !password || (isSetup && !name)}
             className="w-full py-3 text-white font-medium rounded-lg transition-opacity hover:opacity-90 disabled:opacity-50"
             style={{ backgroundColor: '#06C755' }}
           >
-            {loading ? 'ログイン中...' : 'ログイン'}
+            {loading ? '処理中...' : isSetup ? 'アカウント作成' : 'ログイン'}
           </button>
         </form>
+
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => { setIsSetup(!isSetup); setError('') }}
+            className="text-sm text-green-600 hover:underline"
+          >
+            {isSetup ? 'ログインに戻る' : '初回セットアップ'}
+          </button>
+        </div>
       </div>
     </div>
   )

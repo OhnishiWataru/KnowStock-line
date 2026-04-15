@@ -135,3 +135,25 @@ export async function countActiveStaffByRole(db: D1Database, role: string): Prom
     .first<{ count: number }>();
   return result?.count ?? 0;
 }
+
+export async function getStaffByEmail(
+  db: D1Database,
+  email: string,
+): Promise<StaffMember & { password_hash: string | null } | null> {
+  return db
+    .prepare('SELECT * FROM staff_members WHERE email = ? AND is_active = 1')
+    .bind(email)
+    .first<StaffMember & { password_hash: string | null }>();
+}
+
+export async function setStaffPassword(
+  db: D1Database,
+  id: string,
+  passwordHash: string,
+): Promise<void> {
+  const now = jstNow();
+  await db
+    .prepare('UPDATE staff_members SET password_hash = ?, updated_at = ? WHERE id = ?')
+    .bind(passwordHash, now, id)
+    .run();
+}
