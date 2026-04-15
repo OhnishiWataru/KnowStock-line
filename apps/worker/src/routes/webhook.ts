@@ -238,6 +238,18 @@ async function handleEvent(
         break;
       }
     }
+
+    // Also fire message_received so automations with keyword matching (e.g. knowstock_review_*)
+    // can trigger send_webhook to external services.
+    await fireEvent(db, 'message_received', {
+      friendId: friend.id,
+      eventData: {
+        text: postbackData,
+        matched: false,
+        line_user_id: friend.line_user_id,
+        postback_data: postbackData,
+      },
+    }, lineAccessToken, lineAccountId);
     return;
   }
 
@@ -419,7 +431,12 @@ async function handleEvent(
     // Pass replyToken only when auto_reply didn't actually consume it
     await fireEvent(db, 'message_received', {
       friendId: friend.id,
-      eventData: { text: incomingText, matched },
+      eventData: {
+        text: incomingText,
+        matched,
+        line_user_id: friend.line_user_id,
+        youtube_url: incomingText,
+      },
       replyToken: replyTokenConsumed ? undefined : event.replyToken,
     }, lineAccessToken, lineAccountId);
 
