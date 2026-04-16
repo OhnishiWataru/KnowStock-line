@@ -248,14 +248,17 @@ async function handleEvent(
       return;
     }
 
-    if (postbackAction === 'review_start' || postbackAction === 'review_video' || postbackAction === 'review_answer' || postbackAction === 'daily_summary') {
+    if (postbackAction === 'review_start' || postbackAction === 'review_video' || postbackAction === 'review_answer' || postbackAction === 'daily_summary' || postbackAction === 'show_summary') {
       try {
-        const endpoint = postbackAction === 'review_answer' ? 'review-answer' : postbackAction === 'daily_summary' ? 'daily-summary' : 'review-start';
+        const endpoint = postbackAction === 'review_answer' ? 'review-answer' : postbackAction === 'daily_summary' ? 'daily-summary' : postbackAction === 'show_summary' ? 'show-summary' : 'review-start';
         const bodyPayload: Record<string, string> = {
           line_user_id: friend.line_user_id,
           postback_data: postbackData,
         };
         if (postbackAction === 'review_video') {
+          bodyPayload.video_id = postbackParams.get('video_id') || '';
+        }
+        if (postbackAction === 'show_summary') {
           bodyPayload.video_id = postbackParams.get('video_id') || '';
         }
         const res = await fetch(`${KNOWSTOCK_API}/${endpoint}`, {
