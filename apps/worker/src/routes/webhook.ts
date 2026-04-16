@@ -222,7 +222,7 @@ async function handleEvent(
               layout: 'vertical',
               spacing: 'md',
               contents: [
-                { type: 'text', text: '📋 マイ動画', weight: 'bold', size: 'lg' },
+                { type: 'text', text: 'マイ動画', weight: 'bold', size: 'lg' },
                 { type: 'text', text: '登録した動画の一覧・ステータスを確認できます。', wrap: true, size: 'sm', color: '#888888' },
               ],
             },
