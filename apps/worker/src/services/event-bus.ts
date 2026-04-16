@@ -287,11 +287,22 @@ async function executeAction(
     case 'send_webhook': {
       const url = action.params.url;
       if (url) {
-        await fetch(url, {
+        const webhookRes = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ friendId, ...payload.eventData }),
         });
+        // If response contains messages and we have a replyToken, reply for free
+        if (payload.replyToken && lineAccessToken) {
+          try {
+            const webhookData = await webhookRes.json() as { messages?: Array<Record<string, unknown>> };
+            if (webhookData.messages && webhookData.messages.length > 0) {
+              const { LineClient: LC } = await import('@line-crm/line-sdk');
+              const lc = new LC(lineAccessToken);
+              await lc.replyMessage(payload.replyToken, webhookData.messages);
+            }
+          } catch { /* response may not be JSON or reply may fail */ }
+        }
       }
       break;
     }
