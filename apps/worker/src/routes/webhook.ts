@@ -196,7 +196,6 @@ async function handleEvent(
   }
 
   // Postback events — triggered by Flex buttons with action.type: "postback"
-  // Uses the same auto_replies matching but without displaying text in chat
   if (event.type === 'postback') {
     const userId = event.source.type === 'user' ? event.source.userId : undefined;
     if (!userId) return;
@@ -205,8 +204,37 @@ async function handleEvent(
     if (!friend) return;
 
     const postbackData = (event as unknown as { postback: { data: string } }).postback.data;
+    const postbackParams = new URLSearchParams(postbackData);
+    const postbackAction = postbackParams.get('action');
 
-    // Match postback data against auto_replies (exact match on keyword)
+    // KnowStock API direct call + replyToken reply (FREE, no push quota consumed)
+    const KNOWSTOCK_API = 'https://knowstock.vercel.app/api/line';
+    if (postbackAction === 'review_start' || postbackAction === 'review_answer' || postbackAction === 'daily_summary') {
+      try {
+        const endpoint = postbackAction === 'review_answer' ? 'review-answer' : postbackAction === 'daily_summary' ? 'daily-summary' : 'review-start';
+        const res = await fetch(`${KNOWSTOCK_API}/${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            line_user_id: friend.line_user_id,
+            postback_data: postbackData,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json() as { messages?: Array<Record<string, unknown>> };
+          if (data.messages && data.messages.length > 0) {
+            await lineClient.replyMessage(event.replyToken, data.messages);
+          }
+        } else {
+          console.error('KnowStock API error:', res.status, await res.text());
+        }
+      } catch (err) {
+        console.error('KnowStock API call failed:', err);
+      }
+      return;
+    }
+
+    // Generic auto_replies matching for non-KnowStock postbacks
     const autoReplyQuery = lineAccountId
       ? `SELECT * FROM auto_replies WHERE is_active = 1 AND (line_account_id IS NULL OR line_account_id = ?) ORDER BY created_at ASC`
       : `SELECT * FROM auto_replies WHERE is_active = 1 AND line_account_id IS NULL ORDER BY created_at ASC`;
@@ -239,8 +267,7 @@ async function handleEvent(
       }
     }
 
-    // Also fire message_received so automations with keyword matching (e.g. knowstock_review_*)
-    // can trigger send_webhook to external services.
+    // Fire message_received for remaining automations
     await fireEvent(db, 'message_received', {
       friendId: friend.id,
       eventData: {
