@@ -209,6 +209,45 @@ async function handleEvent(
 
     // KnowStock API direct call + replyToken reply (FREE, no push quota consumed)
     const KNOWSTOCK_API = 'https://knowstock.vercel.app/api/line';
+    // マイ動画一覧: Web URLをreplyで返す(FREE)
+    if (postbackAction === 'my_videos') {
+      try {
+        await lineClient.replyMessage(event.replyToken, [{
+          type: 'flex',
+          altText: 'マイ動画一覧',
+          contents: {
+            type: 'bubble',
+            body: {
+              type: 'box',
+              layout: 'vertical',
+              spacing: 'md',
+              contents: [
+                { type: 'text', text: '📋 マイ動画', weight: 'bold', size: 'lg' },
+                { type: 'text', text: '登録した動画の一覧・ステータスを確認できます。', wrap: true, size: 'sm', color: '#888888' },
+              ],
+            },
+            footer: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [{
+                type: 'button',
+                style: 'primary',
+                color: '#4A90D9',
+                action: {
+                  type: 'uri',
+                  label: '動画一覧を開く',
+                  uri: `https://knowstock.vercel.app/my-videos/${friend.line_user_id}`,
+                },
+              }],
+            },
+          },
+        }]);
+      } catch (err) {
+        console.error('my_videos reply failed:', err);
+      }
+      return;
+    }
+
     if (postbackAction === 'review_start' || postbackAction === 'review_video' || postbackAction === 'review_answer' || postbackAction === 'daily_summary') {
       try {
         const endpoint = postbackAction === 'review_answer' ? 'review-answer' : postbackAction === 'daily_summary' ? 'daily-summary' : 'review-start';
