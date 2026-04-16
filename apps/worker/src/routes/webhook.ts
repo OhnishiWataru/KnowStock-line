@@ -236,7 +236,7 @@ async function handleEvent(
                 action: {
                   type: 'uri',
                   label: '動画一覧を開く',
-                  uri: `https://knowstock.vercel.app/my-videos/${friend.line_user_id}`,
+                  uri: `https://knowstock.vercel.app/videos`,
                 },
               }],
             },
