@@ -209,9 +209,18 @@ async function handleEvent(
 
     // KnowStock API direct call + replyToken reply (FREE, no push quota consumed)
     const KNOWSTOCK_API = 'https://knowstock.vercel.app/api/line';
-    if (postbackAction === 'my_videos' || postbackAction === 'review_start' || postbackAction === 'review_video' || postbackAction === 'review_answer' || postbackAction === 'daily_summary' || postbackAction === 'show_summary') {
+    if (postbackAction === 'my_videos' || postbackAction === 'review_start' || postbackAction === 'review_video' || postbackAction === 'review_answer' || postbackAction === 'daily_summary' || postbackAction === 'show_summary' || postbackAction === 'delete_video') {
       try {
-        const endpoint = postbackAction === 'my_videos' ? 'my-videos' : postbackAction === 'review_answer' ? 'review-answer' : postbackAction === 'daily_summary' ? 'daily-summary' : postbackAction === 'show_summary' ? 'show-summary' : 'review-start';
+        const endpointMap: Record<string, string> = {
+          my_videos: 'my-videos',
+          review_answer: 'review-answer',
+          daily_summary: 'daily-summary',
+          show_summary: 'show-summary',
+          delete_video: 'delete-video',
+          review_start: 'review-start',
+          review_video: 'review-start',
+        };
+        const endpoint = endpointMap[postbackAction] || 'review-start';
         const bodyPayload: Record<string, string> = {
           line_user_id: friend.line_user_id,
           postback_data: postbackData,
@@ -220,6 +229,9 @@ async function handleEvent(
           bodyPayload.video_id = postbackParams.get('video_id') || '';
         }
         if (postbackAction === 'show_summary') {
+          bodyPayload.video_id = postbackParams.get('video_id') || '';
+        }
+        if (postbackAction === 'delete_video') {
           bodyPayload.video_id = postbackParams.get('video_id') || '';
         }
         const res = await fetch(`${KNOWSTOCK_API}/${endpoint}`, {
@@ -473,6 +485,20 @@ async function handleEvent(
       },
       replyToken: replyTokenConsumed ? undefined : event.replyToken,
     }, lineAccessToken, lineAccountId);
+
+    // auto_reply にマッチしなかった場合のデフォルト応答
+    if (!replyTokenConsumed && event.replyToken) {
+      // YouTube URL を含むメッセージはautomationで処理されるのでスキップ
+      const isYouTubeUrl = incomingText.includes('youtube.com') || incomingText.includes('youtu.be');
+      if (!isYouTubeUrl) {
+        try {
+          await lineClient.replyMessage(event.replyToken, [{
+            type: 'text',
+            text: 'メッセージを受け付けました。\n以下の操作が可能です。\n\n-- 動画の追加: YouTube URLを送信\n-- 復習・要約: 下のメニューから操作\n-- 使い方: 「使い方を教えて」と送信',
+          }]);
+        } catch { /* replyToken may have expired */ }
+      }
+    }
 
     return;
   }
