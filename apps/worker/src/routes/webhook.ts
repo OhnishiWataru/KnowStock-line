@@ -493,8 +493,37 @@ async function handleEvent(
       if (!isYouTubeUrl) {
         try {
           await lineClient.replyMessage(event.replyToken, [{
-            type: 'text',
-            text: 'メッセージを受け付けました。\n以下の操作が可能です。\n\n-- 動画の追加: YouTube URLを送信\n-- 復習・要約: 下のメニューから操作\n-- 使い方: 「使い方を教えて」と送信',
+            type: 'flex',
+            altText: 'メニューのご案内',
+            contents: {
+              type: 'bubble',
+              size: 'mega',
+              header: {
+                type: 'box',
+                layout: 'vertical',
+                backgroundColor: '#2C3E50',
+                paddingAll: '16px',
+                contents: [
+                  { type: 'text', text: 'ご案内', weight: 'bold', size: 'md', color: '#FFFFFF' },
+                ],
+              },
+              body: {
+                type: 'box',
+                layout: 'vertical',
+                spacing: 'md',
+                paddingAll: '20px',
+                contents: [
+                  { type: 'text', text: '以下の操作が可能です。', size: 'sm', wrap: true },
+                  { type: 'separator', color: '#E5E7EB' },
+                  { type: 'text', text: '■ 動画を追加', weight: 'bold', size: 'sm', margin: 'md' },
+                  { type: 'text', text: 'YouTube URLをこのトークに送信', size: 'xs', color: '#888888' },
+                  { type: 'text', text: '■ 復習する', weight: 'bold', size: 'sm', margin: 'md' },
+                  { type: 'text', text: '下のメニュー「今日の復習」から', size: 'xs', color: '#888888' },
+                  { type: 'text', text: '■ 使い方を見る', weight: 'bold', size: 'sm', margin: 'md' },
+                  { type: 'text', text: '「使い方を教えて」と送信', size: 'xs', color: '#888888' },
+                ],
+              },
+            },
           }]);
         } catch { /* replyToken may have expired */ }
       }
