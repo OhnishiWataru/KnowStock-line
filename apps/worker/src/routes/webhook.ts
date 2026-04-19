@@ -66,7 +66,7 @@ webhook.post('/webhook', async (c) => {
   const processingPromise = (async () => {
     for (const event of body.events) {
       try {
-        await handleEvent(db, lineClient, event, channelAccessToken, matchedAccountId, c.env.WORKER_URL || new URL(c.req.url).origin);
+        await handleEvent(db, lineClient, event, channelAccessToken, matchedAccountId, c.env.WORKER_URL || new URL(c.req.url).origin, c.env.KNOWSTOCK_API_SECRET);
       } catch (err) {
         console.error('Error handling webhook event:', err);
       }
@@ -85,6 +85,7 @@ async function handleEvent(
   lineAccessToken: string,
   lineAccountId: string | null = null,
   workerUrl?: string,
+  knowstockApiSecret?: string,
 ): Promise<void> {
   if (event.type === 'follow') {
     const userId =
@@ -234,9 +235,13 @@ async function handleEvent(
         if (postbackAction === 'delete_video') {
           bodyPayload.video_id = postbackParams.get('video_id') || '';
         }
+        const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (knowstockApiSecret) {
+          apiHeaders['Authorization'] = `Bearer ${knowstockApiSecret}`;
+        }
         const res = await fetch(`${KNOWSTOCK_API}/${endpoint}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: apiHeaders,
           body: JSON.stringify(bodyPayload),
         });
         if (res.ok) {
