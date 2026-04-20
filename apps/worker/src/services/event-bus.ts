@@ -50,6 +50,7 @@ export async function fireEvent(
   payload: EventPayload,
   lineAccessToken?: string,
   lineAccountId?: string | null,
+  knowstockApiSecret?: string,
 ): Promise<void> {
   // Phase 1: fire webhooks, apply scoring rules, and ad conversion postback concurrently.
   const phase1: Promise<unknown>[] = [
@@ -76,7 +77,7 @@ export async function fireEvent(
 
   // Phase 2: evaluate automations and create notifications concurrently.
   await Promise.allSettled([
-    processAutomations(db, eventType, enrichedPayload, lineAccessToken, lineAccountId),
+    processAutomations(db, eventType, enrichedPayload, lineAccessToken, lineAccountId, knowstockApiSecret),
     processNotifications(db, eventType, enrichedPayload, lineAccountId),
   ]);
 }
@@ -147,6 +148,7 @@ async function processAutomations(
   payload: EventPayload,
   lineAccessToken?: string,
   lineAccountId?: string | null,
+  knowstockApiSecret?: string,
 ): Promise<void> {
   try {
     const allAutomations = await getActiveAutomationsByEvent(db, eventType);
@@ -166,7 +168,7 @@ async function processAutomations(
 
       for (const action of actions) {
         try {
-          await executeAction(db, action, payload, lineAccessToken);
+          await executeAction(db, action, payload, lineAccessToken, knowstockApiSecret);
           results.push({ action: action.type, success: true });
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : String(err);
@@ -226,6 +228,7 @@ async function executeAction(
   action: { type: string; params: Record<string, string> },
   payload: EventPayload,
   lineAccessToken?: string,
+  knowstockApiSecret?: string,
 ): Promise<void> {
   const friendId = payload.friendId;
   if (!friendId && action.type !== 'send_webhook') {
@@ -287,11 +290,38 @@ async function executeAction(
     case 'send_webhook': {
       const url = action.params.url;
       if (url) {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        // Attach Bearer auth only for KnowStock API endpoints.
+        // hostname allowlist (Vercel / localhost) + /api/line/ path の両方を満たす場合のみ付与。
+        // URL parse 失敗時は安全側で Bearer を付けない。
+        if (knowstockApiSecret) {
+          try {
+            const u = new URL(url);
+            const isKnowStockApi =
+              u.pathname.startsWith('/api/line/') &&
+              (u.hostname.endsWith('.vercel.app') || u.hostname === 'localhost' || u.hostname === '127.0.0.1');
+            if (isKnowStockApi) {
+              headers['Authorization'] = `Bearer ${knowstockApiSecret}`;
+            }
+          } catch {
+            // URL parse 失敗時は Bearer を付けない
+          }
+        }
         const webhookRes = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ friendId, ...payload.eventData }),
         });
+        // 非2xx 応答を黙殺せずログに残す。body は下流の json() と競合するため clone() してから読む。
+        if (!webhookRes.ok) {
+          let errBody = '';
+          try {
+            errBody = await webhookRes.clone().text();
+          } catch {
+            // ignore
+          }
+          console.error(`send_webhook non-2xx: ${webhookRes.status} url=${url} body=${errBody.slice(0, 500)}`);
+        }
         // If response contains messages and we have a replyToken, reply for free
         if (payload.replyToken && lineAccessToken) {
           try {
@@ -299,7 +329,7 @@ async function executeAction(
             if (webhookData.messages && webhookData.messages.length > 0) {
               const { LineClient: LC } = await import('@line-crm/line-sdk');
               const lc = new LC(lineAccessToken);
-              await lc.replyMessage(payload.replyToken, webhookData.messages);
+              await lc.replyMessage(payload.replyToken, webhookData.messages as Message[]);
             }
           } catch { /* response may not be JSON or reply may fail */ }
         }

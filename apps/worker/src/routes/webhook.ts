@@ -183,7 +183,7 @@ async function handleEvent(
     }
 
     // イベントバス発火: friend_add（replyToken は Step 0 で使用済みの可能性あり）
-    await fireEvent(db, 'friend_add', { friendId: friend.id, eventData: { displayName: friend.display_name } }, lineAccessToken, lineAccountId);
+    await fireEvent(db, 'friend_add', { friendId: friend.id, eventData: { displayName: friend.display_name } }, lineAccessToken, lineAccountId, knowstockApiSecret);
     return;
   }
 
@@ -300,7 +300,7 @@ async function handleEvent(
         line_user_id: friend.line_user_id,
         postback_data: postbackData,
       },
-    }, lineAccessToken, lineAccountId);
+    }, lineAccessToken, lineAccountId, knowstockApiSecret);
     return;
   }
 
@@ -489,7 +489,7 @@ async function handleEvent(
         youtube_url: incomingText,
       },
       replyToken: replyTokenConsumed ? undefined : event.replyToken,
-    }, lineAccessToken, lineAccountId);
+    }, lineAccessToken, lineAccountId, knowstockApiSecret);
 
     // auto_reply にマッチしなかった場合のデフォルト応答
     if (!replyTokenConsumed && event.replyToken) {
